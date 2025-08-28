@@ -2,26 +2,38 @@ import os
 import pandas as pd
 import requests
 
-# URL da API (ano 2023, campos selecionados)
-url = "https://olinda.bcb.gov.br/olinda/servico/MPV_DadosAbertos/versao/v1/odata/Quantidadeetransacoesdecartoes(trimestre=@trimestre)?@trimestre='2023'&$top=100&$format=json&$select=nomeBandeira,nomeFuncao,modalidade,qtdCartoesEmitidos,qtdCartoesAtivos"
+# Selecionando ano e trimestre
+anos = [2023, 2024, 2025]
+trimestres = [1, 2, 3, 4]
 
-# Fazer requisição da API
-response = requests.get(url, timeout=60)
-print("Status Code:", response.status_code)
+# Percorre cada ano e trimestre
+for ano in anos:
+    for trimestre in trimestres:
+        trimestre_str = f"{ano}-{trimestre}"
+        print(f"Baixando dados do trimestre: {trimestre_str}")
 
-# Converter resposta para JSON
-try:
-    dados = response.json()
-except Exception as e:
-    print("Erro ao decodificar JSON:", e)
-    exit()
+        # Setando a URL
+        url = f"https://olinda.bcb.gov.br/olinda/servico/MPV_DadosAbertos/versao/v1/odata/Quantidadeetransacoesdecartoes(trimestre=@trimestre)?@trimestre='{trimestre_str}'&$top=10000&$format=json&$select=trimestre,nomeBandeira,nomeFuncao,modalidade,qtdCartoesEmitidos,qtdCartoesAtivos"
 
-# Transformar dados JSON em DataFrame
-df = pd.json_normalize(dados['value'])
+        # Requisição
+        response = requests.get(url, timeout=60)
+        if response.status_code != 200:
+            print(f"⚠️ Erro ao acessar dados de {trimestre_str} - Status: {response.status_code}")
+            continue
 
-# Salvar arquivos CSV e JSON para análise
-df.to_csv('data/transacoes_cartoes_2023.csv', index=False, encoding='utf-8-sig')
-df.to_json('data/transacoes_cartoes_2023.json', orient='records', force_ascii=False, indent=4)
+        # Converter para JSON
+        try:
+            dados = response.json()
+            df = pd.json_normalize(dados['value'])
 
-print("Arquivos CSV e JSON gerados em 'data/'")
-print(df.head())
+            # Gerando os arquivos com nome
+            csv_path = f"data/transacoes_cartoes_{trimestre_str}.csv"
+            json_path = f"data/transacoes_cartoes_{trimestre_str}.json"
+
+            # Salva em csv e json
+            df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+            df.to_json(json_path, orient='records', force_ascii=False, indent=4)
+
+            print(f"✅ Arquivos salvos: {csv_path} | {json_path}")
+        except Exception as e:
+            print(f"Erro ao processar dados de {trimestre_str}: {e}")
